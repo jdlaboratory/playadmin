@@ -43,8 +43,9 @@
 
     <!-- 키패드 -->
     <aside class="w-full md:w-2/5 shrink-0">
-      <div class="bg-white rounded-2xl shadow p-3">
-        <div class="text-center text-xs text-slate-400 mb-2">전화번호 키패드</div>
+      <div class="bg-white rounded-2xl shadow p-3 h-full flex flex-col">
+        <div class="text-center text-xs text-slate-400 mb-2 shrink-0">전화번호 키패드</div>
+        <div class="flex-1 min-h-0 flex flex-col justify-center">
         <div id="keypad" class="grid grid-cols-3 gap-2">
           <button class="key h-20 rounded-xl border text-3xl font-semibold active:bg-slate-100" data-k="1">1</button>
           <button class="key h-20 rounded-xl border text-3xl font-semibold active:bg-slate-100" data-k="2">2</button>
@@ -59,6 +60,7 @@
           <button class="key h-20 rounded-xl border text-3xl font-semibold active:bg-slate-100" data-k="0">0</button>
           <button class="key h-20 rounded-xl border text-3xl font-semibold active:bg-slate-100" data-k="back">⌫</button>
           <button class="key col-span-3 h-16 rounded-xl border text-lg font-semibold text-red-500 active:bg-red-50" data-k="clear">전체삭제</button>
+        </div>
         </div>
       </div>
     </aside>
@@ -193,7 +195,7 @@ async function initAuth() {
     return;
   }
   const { data } = await sb.auth.getSession();
-  if (data.session) { show("app"); renderTab("stamp"); }
+  if (data.session) { show("app"); renderTab("stamp"); requestAnimationFrame(sizeKeypad); }
   else show("login");
 }
 function show(view) {
@@ -209,7 +211,7 @@ $("loginBtn").onclick = async () => {
   $("loginBtn").disabled = false;
   if (error) { $("loginErr").textContent = "비밀번호가 올바르지 않습니다."; return; }
   $("pw").value = "";
-  show("app"); renderTab("stamp");
+  show("app"); renderTab("stamp"); requestAnimationFrame(sizeKeypad);
 };
 $("pw").addEventListener("keydown", (e) => { if (e.key === "Enter") $("loginBtn").click(); });
 $("logoutBtn").onclick = async () => { await sb.auth.signOut(); show("login"); };
@@ -233,6 +235,44 @@ $("keypad").addEventListener("click", (e) => {
   else el.value += k;
   el.dispatchEvent(new Event("input"));
 });
+
+// 키패드 버튼을 정사각형으로 — 단, 세로 영역(하단 네비 전)을 넘지 않게 크기 자동 계산
+function sizeKeypad() {
+  const kp = $("keypad");
+  if (!kp || $("appView").classList.contains("hidden")) return;
+  const wrap = kp.parentElement;             // 세로 가용 공간을 가진 래퍼
+  const numKeys = kp.querySelectorAll('button[data-k]:not([data-k="clear"])');
+  const clearKey = kp.querySelector('button[data-k="clear"]');
+
+  // 좁은 화면(세로/모바일)에서는 기본 클래스 크기 사용 → 인라인 스타일 제거
+  if (window.innerWidth < 768) {
+    kp.style.gridTemplateColumns = "";
+    kp.style.justifyContent = "";
+    numKeys.forEach((b) => { b.style.height = b.style.width = b.style.fontSize = ""; });
+    if (clearKey) { clearKey.style.height = clearKey.style.fontSize = ""; }
+    return;
+  }
+
+  const gap = 8;          // gap-2
+  const clearH = 56;      // 전체삭제 행 높이(가로 막대)
+  const availH = wrap.clientHeight;
+  const availW = wrap.clientWidth;
+  const sqH = (availH - clearH - gap - 3 * gap) / 4;   // 숫자 4행 + 행간 3 + clear 앞 1
+  const sqW = (availW - 2 * gap) / 3;
+  let sq = Math.floor(Math.min(sqH, sqW));
+  sq = Math.max(44, Math.min(sq, 180));
+
+  kp.style.gridTemplateColumns = `repeat(3, ${sq}px)`;
+  kp.style.justifyContent = "center";
+  const fs = Math.round(sq * 0.36);
+  numKeys.forEach((b) => {
+    b.style.width = sq + "px";
+    b.style.height = sq + "px";
+    b.style.fontSize = fs + "px";
+  });
+  if (clearKey) { clearKey.style.height = clearH + "px"; clearKey.style.fontSize = "18px"; }
+}
+window.addEventListener("resize", sizeKeypad);
 
 // ───────── 탭 ─────────
 document.querySelectorAll(".tab-btn").forEach((b) => {
