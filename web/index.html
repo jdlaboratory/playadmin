@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>플레이영 고객관리</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./config.js"></script>
+<style>
+  body { -webkit-tap-highlight-color: transparent; }
+  .tab-btn.active { background:#4f46e5; color:#fff; }
+  input, button { font-size: 16px; } /* iOS 확대 방지 */
+</style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen">
+
+<!-- 로그인 -->
+<div id="loginView" class="hidden min-h-screen flex items-center justify-center p-6">
+  <div class="bg-white rounded-2xl shadow-lg p-8 w-full max-w-sm">
+    <h1 class="text-2xl font-bold text-center mb-1">플레이영</h1>
+    <p class="text-center text-slate-500 mb-6">고객관리 시스템</p>
+    <input id="pw" type="password" inputmode="text" placeholder="비밀번호"
+           class="w-full border rounded-xl px-4 py-3 mb-3 text-center tracking-widest" />
+    <button id="loginBtn" class="w-full bg-indigo-600 text-white rounded-xl py-3 font-semibold active:bg-indigo-700">
+      입장하기
+    </button>
+    <p id="loginErr" class="text-red-500 text-sm text-center mt-3 h-5"></p>
+  </div>
+</div>
+
+<!-- 메인 -->
+<div id="appView" class="hidden max-w-3xl mx-auto p-4 pb-24">
+  <header class="flex items-center justify-between py-3">
+    <h1 class="text-xl font-bold">플레이영 고객관리</h1>
+    <button id="logoutBtn" class="text-sm text-slate-500 underline">로그아웃</button>
+  </header>
+
+  <!-- 탭 내용 -->
+  <main id="tabContent" class="mt-2"></main>
+
+  <!-- 하단 탭바 -->
+  <nav class="fixed bottom-0 left-0 right-0 bg-white border-t flex max-w-3xl mx-auto">
+    <button data-tab="stamp"  class="tab-btn active flex-1 py-4 font-semibold">스탬프 입력</button>
+    <button data-tab="coupon" class="tab-btn flex-1 py-4 font-semibold">쿠폰 사용</button>
+    <button data-tab="list"   class="tab-btn flex-1 py-4 font-semibold">고객 목록</button>
+  </nav>
+</div>
+
+<!-- 수정/추가 모달 -->
+<div id="modal" class="hidden fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+  <div class="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-md p-5">
+    <h3 id="modalTitle" class="text-lg font-bold mb-4">고객 수정</h3>
+    <div class="space-y-3">
+      <label class="block text-sm">전화번호
+        <input id="m_phone" class="mt-1 w-full border rounded-lg px-3 py-2" inputmode="numeric" />
+      </label>
+      <div class="grid grid-cols-3 gap-2">
+        <label class="block text-sm">스탬프
+          <input id="m_stamps" type="number" class="mt-1 w-full border rounded-lg px-3 py-2" /></label>
+        <label class="block text-sm">보유쿠폰
+          <input id="m_coupons" type="number" class="mt-1 w-full border rounded-lg px-3 py-2" /></label>
+        <label class="block text-sm">사용쿠폰
+          <input id="m_used" type="number" class="mt-1 w-full border rounded-lg px-3 py-2" /></label>
+      </div>
+      <label class="block text-sm">이름
+        <input id="m_name" class="mt-1 w-full border rounded-lg px-3 py-2" /></label>
+      <label class="block text-sm">메모
+        <input id="m_memo" class="mt-1 w-full border rounded-lg px-3 py-2" /></label>
+    </div>
+    <p id="modalErr" class="text-red-500 text-sm mt-2 h-5"></p>
+    <div class="flex gap-2 mt-3">
+      <button id="modalCancel" class="flex-1 border rounded-xl py-3">취소</button>
+      <button id="modalSave" class="flex-1 bg-indigo-600 text-white rounded-xl py-3 font-semibold">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 토스트 -->
+<div id="toast" class="hidden fixed top-4 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-4 py-2 rounded-lg z-50 text-sm"></div>
+
+<script>
+// ───────── 초기화 ─────────
+const cfg = window.APP_CONFIG || {};
+const configured = cfg.SUPABASE_URL && !cfg.SUPABASE_URL.includes("YOUR-PROJECT") && cfg.SUPABASE_ANON_KEY && !cfg.SUPABASE_ANON_KEY.includes("여기에");
+let sb = null;
+if (configured) {
+  sb = supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+}
+
+const $ = (id) => document.getElementById(id);
+const normPhone = (s) => (s || "").replace(/\D/g, "");
+const fmtPhone = (p) => {
+  p = normPhone(p);
+  if (p.length === 11) return p.replace(/(\d{3})(\d{4})(\d{4})/, "$1-$2-$3");
+  if (p.length === 10) return p.replace(/(\d{3})(\d{3})(\d{4})/, "$1-$2-$3");
+  return p;
+};
+function toast(msg, ok = true) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.className = "fixed top-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg z-50 text-sm " +
+    (ok ? "bg-slate-900 text-white" : "bg-red-600 text-white");
+  t.classList.remove("hidden");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.add("hidden"), 2200);
+}
+
+// ───────── 인증 ─────────
+async function initAuth() {
+  if (!configured) {
+    show("login");
+    $("loginErr").textContent = "설정 필요: config.js에 Supabase 정보를 입력하세요.";
+    $("loginBtn").disabled = true;
+    return;
+  }
+  const { data } = await sb.auth.getSession();
+  if (data.session) { show("app"); renderTab("stamp"); }
+  else show("login");
+}
+function show(view) {
+  $("loginView").classList.toggle("hidden", view !== "login");
+  $("appView").classList.toggle("hidden", view !== "app");
+}
+$("loginBtn").onclick = async () => {
+  const pw = $("pw").value.trim();
+  if (!pw) return;
+  $("loginErr").textContent = "";
+  $("loginBtn").disabled = true;
+  const { error } = await sb.auth.signInWithPassword({ email: cfg.ADMIN_EMAIL, password: pw });
+  $("loginBtn").disabled = false;
+  if (error) { $("loginErr").textContent = "비밀번호가 올바르지 않습니다."; return; }
+  $("pw").value = "";
+  show("app"); renderTab("stamp");
+};
+$("pw").addEventListener("keydown", (e) => { if (e.key === "Enter") $("loginBtn").click(); });
+$("logoutBtn").onclick = async () => { await sb.auth.signOut(); show("login"); };
+
+// ───────── 탭 ─────────
+document.querySelectorAll(".tab-btn").forEach((b) => {
+  b.onclick = () => {
+    document.querySelectorAll(".tab-btn").forEach((x) => x.classList.remove("active"));
+    b.classList.add("active");
+    renderTab(b.dataset.tab);
+  };
+});
+
+function renderTab(tab) {
+  if (tab === "stamp") renderStamp();
+  else if (tab === "coupon") renderCoupon();
+  else renderList();
+}
+
+// ── 스탬프 입력 ──
+function renderStamp() {
+  $("tabContent").innerHTML = `
+    <div class="bg-white rounded-2xl shadow p-5">
+      <h2 class="font-bold text-lg mb-4">스탬프 적립</h2>
+      <label class="block text-sm text-slate-500">전화번호</label>
+      <input id="s_phone" inputmode="numeric" placeholder="01012345678"
+             class="w-full border rounded-xl px-4 py-3 mt-1 text-lg" />
+      <label class="block text-sm text-slate-500 mt-4">적립 스탬프 수</label>
+      <div class="flex items-center gap-2 mt-1">
+        <button id="s_minus" class="w-12 h-12 rounded-xl border text-2xl">-</button>
+        <input id="s_count" type="number" value="1" min="1"
+               class="flex-1 border rounded-xl px-4 py-3 text-center text-xl" />
+        <button id="s_plus" class="w-12 h-12 rounded-xl border text-2xl">+</button>
+      </div>
+      <button id="s_submit" class="w-full bg-indigo-600 text-white rounded-xl py-4 mt-5 text-lg font-semibold active:bg-indigo-700">
+        적립하기
+      </button>
+      <div id="s_result" class="mt-4"></div>
+    </div>`;
+  $("s_minus").onclick = () => { const c = $("s_count"); c.value = Math.max(1, (+c.value || 1) - 1); };
+  $("s_plus").onclick = () => { const c = $("s_count"); c.value = (+c.value || 0) + 1; };
+  $("s_submit").onclick = submitStamp;
+  $("s_phone").focus();
+}
+async function submitStamp() {
+  const phone = normPhone($("s_phone").value);
+  const count = parseInt($("s_count").value, 10);
+  if (phone.length < 9) return toast("전화번호를 확인하세요", false);
+  if (!count || count < 1) return toast("스탬프 수를 확인하세요", false);
+  $("s_submit").disabled = true;
+  const { data, error } = await sb.rpc("add_stamps", { p_phone: phone, p_count: count });
+  $("s_submit").disabled = false;
+  if (error) return toast("오류: " + error.message, false);
+  const c = data;
+  $("s_result").innerHTML = `
+    <div class="bg-indigo-50 rounded-xl p-4">
+      <div class="text-sm text-slate-500">${fmtPhone(c.phone)} ${c.name ? "· " + c.name : ""}</div>
+      <div class="flex gap-6 mt-2 text-center">
+        <div><div class="text-3xl font-bold text-indigo-600">${c.stamps}</div><div class="text-xs text-slate-500">스탬프</div></div>
+        <div><div class="text-3xl font-bold text-pink-600">${c.coupons}</div><div class="text-xs text-slate-500">보유 쿠폰</div></div>
+      </div>
+    </div>`;
+  toast(`${count}개 적립 완료`);
+  $("s_phone").value = ""; $("s_count").value = "1"; $("s_phone").focus();
+}
+
+// ── 쿠폰 사용 ──
+function renderCoupon() {
+  $("tabContent").innerHTML = `
+    <div class="bg-white rounded-2xl shadow p-5">
+      <h2 class="font-bold text-lg mb-4">쿠폰 사용</h2>
+      <label class="block text-sm text-slate-500">전화번호</label>
+      <div class="flex gap-2 mt-1">
+        <input id="c_phone" inputmode="numeric" placeholder="01012345678"
+               class="flex-1 border rounded-xl px-4 py-3 text-lg" />
+        <button id="c_lookup" class="px-5 bg-slate-700 text-white rounded-xl font-semibold">조회</button>
+      </div>
+      <div id="c_result" class="mt-4"></div>
+    </div>`;
+  $("c_lookup").onclick = lookupCoupon;
+  $("c_phone").addEventListener("keydown", (e) => { if (e.key === "Enter") lookupCoupon(); });
+  $("c_phone").focus();
+}
+async function lookupCoupon() {
+  const phone = normPhone($("c_phone").value);
+  if (phone.length < 9) return toast("전화번호를 확인하세요", false);
+  const { data, error } = await sb.from("customers").select("*").eq("phone", phone).maybeSingle();
+  if (error) return toast("오류: " + error.message, false);
+  if (!data) { $("c_result").innerHTML = `<p class="text-slate-500 text-center py-6">등록되지 않은 전화번호입니다.</p>`; return; }
+  drawCoupon(data);
+}
+function drawCoupon(c) {
+  $("c_result").innerHTML = `
+    <div class="bg-pink-50 rounded-xl p-5 text-center">
+      <div class="text-sm text-slate-500">${fmtPhone(c.phone)} ${c.name ? "· " + c.name : ""}</div>
+      <div class="text-5xl font-bold text-pink-600 my-3">${c.coupons}</div>
+      <div class="text-sm text-slate-500 mb-4">보유 쿠폰 (사용 누적 ${c.coupons_used})</div>
+      <button id="c_use" class="w-full ${c.coupons > 0 ? "bg-pink-600 active:bg-pink-700" : "bg-slate-300 cursor-not-allowed"} text-white rounded-xl py-4 text-lg font-semibold"
+        ${c.coupons > 0 ? "" : "disabled"}>사용하기 (1장 차감)</button>
+    </div>`;
+  if (c.coupons > 0) $("c_use").onclick = () => useCoupon(c.phone);
+}
+async function useCoupon(phone) {
+  $("c_use").disabled = true;
+  const { data, error } = await sb.rpc("use_coupon", { p_phone: phone });
+  if (error) { toast("오류: " + error.message, false); $("c_use").disabled = false; return; }
+  drawCoupon(data);
+  toast("쿠폰 1장 사용 완료");
+}
+
+// ── 고객 목록 ──
+const PAGE_SIZE = 20;
+let listState = { q: "", page: 0 };
+let listData = [];
+function renderList() {
+  $("tabContent").innerHTML = `
+    <div class="bg-white rounded-2xl shadow p-4">
+      <div class="flex gap-2 mb-3">
+        <input id="l_q" placeholder="전화번호 검색" inputmode="numeric" value="${listState.q}"
+               class="flex-1 border rounded-xl px-4 py-2" />
+        <button id="l_add" class="px-4 bg-indigo-600 text-white rounded-xl font-semibold whitespace-nowrap">+ 추가</button>
+      </div>
+      <div id="l_rows" class="divide-y"></div>
+      <div id="l_pager" class="flex items-center justify-between mt-3 text-sm"></div>
+    </div>`;
+  const q = $("l_q");
+  q.oninput = () => { listState.q = q.value; listState.page = 0; loadList(); };
+  $("l_add").onclick = () => openModal(null);
+  loadList();
+}
+async function loadList() {
+  const from = listState.page * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
+  let query = sb.from("customers").select("*", { count: "exact" }).order("phone").range(from, to);
+  const digits = normPhone(listState.q);
+  if (digits) query = query.ilike("phone", `%${digits}%`);
+  const { data, count, error } = await query;
+  if (error) return toast("오류: " + error.message, false);
+  listData = data;
+  const rows = $("l_rows");
+  if (!data.length) { rows.innerHTML = `<p class="text-center text-slate-400 py-8">결과 없음</p>`; }
+  else {
+    rows.innerHTML = data.map((c) => `
+      <div class="flex items-center justify-between py-3">
+        <div>
+          <div class="font-semibold">${fmtPhone(c.phone)} ${c.name ? `<span class="text-slate-500 font-normal">${esc(c.name)}</span>` : ""}</div>
+          <div class="text-xs text-slate-500 mt-0.5">스탬프 ${c.stamps} · 보유쿠폰 ${c.coupons} · 사용 ${c.coupons_used}${c.memo ? " · " + esc(c.memo) : ""}</div>
+        </div>
+        <div class="flex gap-1">
+          <button data-act="edit" data-id="${c.id}" class="px-3 py-1.5 text-sm border rounded-lg">수정</button>
+          <button data-act="del" data-id="${c.id}" class="px-3 py-1.5 text-sm border border-red-200 text-red-600 rounded-lg">삭제</button>
+        </div>
+      </div>`).join("");
+    rows.onclick = (e) => {
+      const btn = e.target.closest("button[data-act]");
+      if (!btn) return;
+      const c = listData.find((x) => x.id === btn.dataset.id);
+      if (!c) return;
+      if (btn.dataset.act === "edit") openModal(c);
+      else delRow(c.id, fmtPhone(c.phone));
+    };
+  }
+  const total = count || 0;
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  $("l_pager").innerHTML = `
+    <button id="l_prev" class="px-3 py-1.5 border rounded-lg ${listState.page <= 0 ? "opacity-40" : ""}">이전</button>
+    <span class="text-slate-500">${listState.page + 1} / ${pages} · 총 ${total}명</span>
+    <button id="l_next" class="px-3 py-1.5 border rounded-lg ${listState.page >= pages - 1 ? "opacity-40" : ""}">다음</button>`;
+  $("l_prev").onclick = () => { if (listState.page > 0) { listState.page--; loadList(); } };
+  $("l_next").onclick = () => { if (listState.page < pages - 1) { listState.page++; loadList(); } };
+}
+const esc = (s) => (s || "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
+async function delRow(id, label) {
+  if (!confirm(`${label} 고객을 삭제할까요?`)) return;
+  const { error } = await sb.from("customers").delete().eq("id", id);
+  if (error) return toast("오류: " + error.message, false);
+  toast("삭제 완료"); loadList();
+};
+
+// ── 모달(추가/수정) ──
+let editing = null;
+function openModal(c) {
+  editing = c;
+  $("modalTitle").textContent = c ? "고객 수정" : "새 고객 추가";
+  $("m_phone").value = c ? c.phone : "";
+  $("m_phone").readOnly = false;
+  $("m_stamps").value = c ? c.stamps : 0;
+  $("m_coupons").value = c ? c.coupons : 0;
+  $("m_used").value = c ? c.coupons_used : 0;
+  $("m_name").value = c ? c.name : "";
+  $("m_memo").value = c ? c.memo : "";
+  $("modalErr").textContent = "";
+  $("modal").classList.remove("hidden");
+}
+$("modalCancel").onclick = () => $("modal").classList.add("hidden");
+$("modalSave").onclick = async () => {
+  const phone = normPhone($("m_phone").value);
+  if (phone.length < 9) { $("modalErr").textContent = "전화번호를 확인하세요"; return; }
+  const payload = {
+    phone,
+    stamps: Math.max(0, parseInt($("m_stamps").value, 10) || 0),
+    coupons: Math.max(0, parseInt($("m_coupons").value, 10) || 0),
+    coupons_used: Math.max(0, parseInt($("m_used").value, 10) || 0),
+    name: $("m_name").value.trim(),
+    memo: $("m_memo").value.trim(),
+  };
+  let res;
+  if (editing) res = await sb.from("customers").update(payload).eq("id", editing.id);
+  else res = await sb.from("customers").insert(payload);
+  if (res.error) {
+    $("modalErr").textContent = res.error.code === "23505" ? "이미 등록된 전화번호입니다" : res.error.message;
+    return;
+  }
+  $("modal").classList.add("hidden");
+  toast("저장 완료"); loadList();
+};
+
+// 시작
+initAuth();
+</script>
+</body>
+</html>

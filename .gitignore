@@ -1,0 +1,7 @@
+# 원본/민감 데이터
+data/customers.csv
+*.xlsx
+
+# 파이썬
+__pycache__/
+*.pyc
