@@ -20,6 +20,10 @@
   .tab-btn.active { background:#ff0485; color:#fff; }
   input, button { font-size: 16px; } /* iOS 확대 방지 */
   .key { user-select:none; }
+  /* 모바일 세로화면에서는 우측 키패드 숨김 (가로 모드/태블릿 키오스크에서는 표시) */
+  @media (orientation: portrait) and (max-width: 767px) {
+    #keypadAside { display: none; }
+  }
 </style>
 </head>
 <body class="bg-slate-100 text-slate-800">
@@ -50,7 +54,7 @@
     <main id="tabContent" class="flex-1 min-w-0 overflow-auto"></main>
 
     <!-- 키패드 -->
-    <aside class="w-full md:w-2/5 shrink-0">
+    <aside id="keypadAside" class="w-full md:w-2/5 shrink-0">
       <div class="bg-white rounded-2xl shadow p-3 h-full flex flex-col">
         <div class="text-center text-xs text-slate-400 mb-2 shrink-0">전화번호 키패드</div>
         <div class="flex-1 min-h-0 flex flex-col justify-center">
