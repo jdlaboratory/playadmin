@@ -31,7 +31,7 @@
 </div>
 
 <!-- 메인 (가로 모드: 왼쪽 내용 + 오른쪽 키패드) -->
-<div id="appView" class="hidden h-screen flex flex-col max-w-6xl mx-auto p-3">
+<div id="appView" class="hidden h-screen flex flex-col w-full mx-auto p-3">
   <header class="flex items-center justify-between py-2 shrink-0">
     <h1 class="text-xl font-bold">플레이영 고객관리</h1>
     <button id="logoutBtn" class="text-sm text-slate-500 underline">로그아웃</button>
@@ -42,23 +42,23 @@
     <main id="tabContent" class="flex-1 min-w-0 overflow-auto"></main>
 
     <!-- 키패드 -->
-    <aside class="w-full md:w-72 shrink-0">
+    <aside class="w-full md:w-2/5 shrink-0">
       <div class="bg-white rounded-2xl shadow p-3">
         <div class="text-center text-xs text-slate-400 mb-2">전화번호 키패드</div>
         <div id="keypad" class="grid grid-cols-3 gap-2">
-          <button class="key h-16 rounded-xl border text-2xl font-semibold active:bg-slate-100" data-k="1">1</button>
-          <button class="key h-16 rounded-xl border text-2xl font-semibold active:bg-slate-100" data-k="2">2</button>
-          <button class="key h-16 rounded-xl border text-2xl font-semibold active:bg-slate-100" data-k="3">3</button>
-          <button class="key h-16 rounded-xl border text-2xl font-semibold active:bg-slate-100" data-k="4">4</button>
-          <button class="key h-16 rounded-xl border text-2xl font-semibold active:bg-slate-100" data-k="5">5</button>
-          <button class="key h-16 rounded-xl border text-2xl font-semibold active:bg-slate-100" data-k="6">6</button>
-          <button class="key h-16 rounded-xl border text-2xl font-semibold active:bg-slate-100" data-k="7">7</button>
-          <button class="key h-16 rounded-xl border text-2xl font-semibold active:bg-slate-100" data-k="8">8</button>
-          <button class="key h-16 rounded-xl border text-2xl font-semibold active:bg-slate-100" data-k="9">9</button>
-          <button class="key h-16 rounded-xl border text-2xl font-semibold text-indigo-600 active:bg-indigo-50" data-k="010">010</button>
-          <button class="key h-16 rounded-xl border text-2xl font-semibold active:bg-slate-100" data-k="0">0</button>
-          <button class="key h-16 rounded-xl border text-2xl font-semibold active:bg-slate-100" data-k="back">⌫</button>
-          <button class="key col-span-3 h-14 rounded-xl border text-base font-semibold text-red-500 active:bg-red-50" data-k="clear">전체삭제</button>
+          <button class="key h-20 rounded-xl border text-3xl font-semibold active:bg-slate-100" data-k="1">1</button>
+          <button class="key h-20 rounded-xl border text-3xl font-semibold active:bg-slate-100" data-k="2">2</button>
+          <button class="key h-20 rounded-xl border text-3xl font-semibold active:bg-slate-100" data-k="3">3</button>
+          <button class="key h-20 rounded-xl border text-3xl font-semibold active:bg-slate-100" data-k="4">4</button>
+          <button class="key h-20 rounded-xl border text-3xl font-semibold active:bg-slate-100" data-k="5">5</button>
+          <button class="key h-20 rounded-xl border text-3xl font-semibold active:bg-slate-100" data-k="6">6</button>
+          <button class="key h-20 rounded-xl border text-3xl font-semibold active:bg-slate-100" data-k="7">7</button>
+          <button class="key h-20 rounded-xl border text-3xl font-semibold active:bg-slate-100" data-k="8">8</button>
+          <button class="key h-20 rounded-xl border text-3xl font-semibold active:bg-slate-100" data-k="9">9</button>
+          <button class="key h-20 rounded-xl border text-3xl font-semibold text-indigo-600 active:bg-indigo-50" data-k="010">010</button>
+          <button class="key h-20 rounded-xl border text-3xl font-semibold active:bg-slate-100" data-k="0">0</button>
+          <button class="key h-20 rounded-xl border text-3xl font-semibold active:bg-slate-100" data-k="back">⌫</button>
+          <button class="key col-span-3 h-16 rounded-xl border text-lg font-semibold text-red-500 active:bg-red-50" data-k="clear">전체삭제</button>
         </div>
       </div>
     </aside>
