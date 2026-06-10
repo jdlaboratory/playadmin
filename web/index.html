@@ -104,7 +104,7 @@
 <div id="dlModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
   <div class="bg-white rounded-2xl w-full max-w-sm p-5">
     <h3 class="text-lg font-bold mb-1">전화번호 다운로드</h3>
-    <p class="text-sm text-slate-500 mb-4">최근 수정일 기준으로 전화번호를 CSV로 내려받습니다.</p>
+    <p class="text-sm text-slate-500 mb-4">최근 방문일 기준으로 전화번호를 CSV로 내려받습니다.</p>
     <div id="dl_opts" class="space-y-2">
       <label class="flex items-center gap-3 border rounded-xl px-4 py-3 cursor-pointer">
         <input type="radio" name="dlrange" value="1" checked class="w-4 h-4"><span class="font-medium">최근 1개월</span>
@@ -148,8 +148,12 @@ const fmtPhone = (p) => {
 const esc = (s) => (s || "").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
 function fmtDate(ts) {
   if (!ts) return "-";
-  const d = new Date(ts), p = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  // 기기 시간대와 무관하게 항상 한국(서울) 시간으로 표시 → "YYYY-MM-DD HH:mm"
+  return new Date(ts).toLocaleString("sv-SE", {
+    timeZone: "Asia/Seoul",
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit",
+  });
 }
 function toast(msg, ok = true) {
   const t = $("toast");
@@ -387,7 +391,7 @@ async function loadList() {
         <div class="min-w-0">
           <div class="font-semibold">${fmtPhone(c.phone)} ${c.name ? `<span class="text-slate-500 font-normal">${esc(c.name)}</span>` : ""}</div>
           <div class="text-xs text-slate-500 mt-0.5">스탬프 ${c.stamps} · 보유쿠폰 ${c.coupons} · 사용 ${c.coupons_used}${c.memo ? " · " + esc(c.memo) : ""}</div>
-          <div class="text-xs text-slate-400 mt-0.5">최근 수정 ${fmtDate(c.updated_at)}</div>
+          <div class="text-xs text-slate-400 mt-0.5">최근 방문 ${fmtDate(c.updated_at)}</div>
         </div>
         <div class="flex gap-1 shrink-0">
           <button data-act="edit" data-id="${c.id}" class="px-3 py-1.5 text-sm border rounded-lg">수정</button>
