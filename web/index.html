@@ -186,6 +186,45 @@ function toast(msg, ok = true) {
   toast._t = setTimeout(() => t.classList.add("hidden"), 2200);
 }
 
+// ───────── 세션 안정화 ─────────
+let manualLogout = false;
+function isAuthErr(e) {
+  if (!e) return false;
+  const msg = (e.message || "") + " " + (e.hint || "");
+  return e.code === "PGRST301" || e.status === 401 || /jwt|token|expired|unauthor/i.test(msg);
+}
+function handleSessionLost() {
+  if (!$("appView").classList.contains("hidden")) {
+    show("login");
+    toast("세션이 만료되어 다시 로그인해 주세요", false);
+  }
+}
+// 인증 만료로 실패하면 토큰을 갱신하고 1회 자동 재시도
+async function q(run) {
+  let res = await run();
+  if (res && res.error && isAuthErr(res.error)) {
+    const { data, error } = await sb.auth.refreshSession();
+    if (error || !data || !data.session) { handleSessionLost(); return res; }
+    res = await run();
+  }
+  return res;
+}
+if (sb) {
+  // 세션이 끊기면 깔끔하게 로그인 화면으로
+  sb.auth.onAuthStateChange((event, session) => {
+    if (event === "SIGNED_OUT" && !manualLogout) handleSessionLost();
+  });
+  // 태블릿이 절전에서 깨어나면(탭이 다시 보이면) 세션 점검·복구
+  document.addEventListener("visibilitychange", async () => {
+    if (document.visibilityState !== "visible") return;
+    if ($("appView").classList.contains("hidden")) return;
+    const { data } = await sb.auth.getSession();
+    if (!data.session) { await sb.auth.refreshSession(); }
+    const after = await sb.auth.getSession();
+    if (!after.data.session) handleSessionLost();
+  });
+}
+
 // ───────── 인증 ─────────
 async function initAuth() {
   if (!configured) {
@@ -214,7 +253,7 @@ $("loginBtn").onclick = async () => {
   show("app"); renderTab("stamp"); requestAnimationFrame(sizeKeypad);
 };
 $("pw").addEventListener("keydown", (e) => { if (e.key === "Enter") $("loginBtn").click(); });
-$("logoutBtn").onclick = async () => { await sb.auth.signOut(); show("login"); };
+$("logoutBtn").onclick = async () => { manualLogout = true; await sb.auth.signOut(); show("login"); manualLogout = false; };
 
 // ───────── 키패드 ─────────
 let currentTab = "stamp";
@@ -296,7 +335,7 @@ function attachPhoneSearch(input, box, onPick) {
     const d = normPhone(input.value);
     const my = ++seq;
     if (d.length < 2) { box.classList.add("hidden"); box.innerHTML = ""; return; }
-    const { data } = await sb.from("customers").select("phone,name,stamps,coupons").ilike("phone", `%${d}%`).order("phone").limit(8);
+    const { data } = await q(() => sb.from("customers").select("phone,name,stamps,coupons").ilike("phone", `%${d}%`).order("phone").limit(8));
     if (my !== seq) return; // 오래된 응답 무시
     if (!data || !data.length) { box.classList.add("hidden"); box.innerHTML = ""; return; }
     box.innerHTML = data.map((c) => `
@@ -349,7 +388,7 @@ async function submitStamp() {
   if (phone.length < 9) return toast("전화번호를 확인하세요", false);
   if (!count || count < 1) return toast("스탬프 수를 확인하세요", false);
   $("s_submit").disabled = true;
-  const { data, error } = await sb.rpc("add_stamps", { p_phone: phone, p_count: count });
+  const { data, error } = await q(() => sb.rpc("add_stamps", { p_phone: phone, p_count: count }));
   $("s_submit").disabled = false;
   if (error) return toast("오류: " + error.message, false);
   const c = data;
@@ -388,7 +427,7 @@ function renderCoupon() {
 async function lookupCoupon() {
   const phone = normPhone($("c_phone").value);
   if (phone.length < 9) return toast("전화번호를 확인하세요", false);
-  const { data, error } = await sb.from("customers").select("*").eq("phone", phone).maybeSingle();
+  const { data, error } = await q(() => sb.from("customers").select("*").eq("phone", phone).maybeSingle());
   if (error) return toast("오류: " + error.message, false);
   if (!data) { $("c_result").innerHTML = `<p class="text-slate-500 text-center py-6">등록되지 않은 전화번호입니다.</p>`; return; }
   drawCoupon(data);
@@ -406,7 +445,7 @@ function drawCoupon(c) {
 }
 async function useCoupon(phone) {
   $("c_use").disabled = true;
-  const { data, error } = await sb.rpc("use_coupon", { p_phone: phone });
+  const { data, error } = await q(() => sb.rpc("use_coupon", { p_phone: phone }));
   if (error) { toast("오류: " + error.message, false); $("c_use").disabled = false; return; }
   drawCoupon(data);
   toast("쿠폰 1장 사용 완료");
@@ -437,10 +476,12 @@ function renderList() {
 async function loadList() {
   const from = listState.page * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
-  let query = sb.from("customers").select("*", { count: "exact" }).order("phone").range(from, to);
   const digits = normPhone(listState.q);
-  if (digits) query = query.ilike("phone", `%${digits}%`);
-  const { data, count, error } = await query;
+  const { data, count, error } = await q(() => {
+    let query = sb.from("customers").select("*", { count: "exact" }).order("phone").range(from, to);
+    if (digits) query = query.ilike("phone", `%${digits}%`);
+    return query;
+  });
   if (error) return toast("오류: " + error.message, false);
   listData = data;
   const rows = $("l_rows");
@@ -485,7 +526,7 @@ async function loadList() {
 }
 async function delRow(id, label) {
   if (!confirm(`${label} 고객을 삭제할까요?`)) return;
-  const { error } = await sb.from("customers").delete().eq("id", id);
+  const { error } = await q(() => sb.from("customers").delete().eq("id", id));
   if (error) return toast("오류: " + error.message, false);
   toast("삭제 완료"); loadList();
 }
@@ -498,7 +539,7 @@ async function openDetail(c) {
   $("d_summary").textContent = `스탬프 ${c.stamps} · 보유쿠폰 ${c.coupons} · 사용 ${c.coupons_used} · 최근 방문 ${fmtDate(c.updated_at)}`;
   $("d_logs").innerHTML = `<p class="text-slate-400 text-center py-6">불러오는 중...</p>`;
   $("detailModal").classList.remove("hidden");
-  const { data, error } = await sb.from("activity_logs").select("*").eq("phone", c.phone).order("created_at", { ascending: false }).limit(300);
+  const { data, error } = await q(() => sb.from("activity_logs").select("*").eq("phone", c.phone).order("created_at", { ascending: false }).limit(300));
   if (error) { $("d_logs").innerHTML = `<p class="text-red-500 text-center py-6">${esc(error.message)}</p>`; return; }
   if (!data.length) {
     $("d_logs").innerHTML = `<p class="text-slate-400 text-center py-8 leading-relaxed">기록이 없습니다.<br><span class="text-xs">기존 고객은 과거 이력이 없으며,<br>지금부터의 적립/사용분이 기록됩니다.</span></p>`;
@@ -546,8 +587,8 @@ $("modalSave").onclick = async () => {
     memo: $("m_memo").value.trim(),
   };
   let res;
-  if (editing) res = await sb.from("customers").update(payload).eq("id", editing.id);
-  else res = await sb.from("customers").insert(payload);
+  if (editing) res = await q(() => sb.from("customers").update(payload).eq("id", editing.id));
+  else res = await q(() => sb.from("customers").insert(payload));
   if (res.error) {
     $("modalErr").textContent = res.error.code === "23505" ? "이미 등록된 전화번호입니다" : res.error.message;
     return;
@@ -573,9 +614,11 @@ $("dlGo").onclick = async () => {
   const PAGE = 1000;
   let from = 0;
   while (true) {
-    let q = sb.from("customers").select("phone").order("phone").range(from, from + PAGE - 1);
-    if (cutoff) q = q.gte("updated_at", cutoff);
-    const { data, error } = await q;
+    const { data, error } = await q(() => {
+      let query = sb.from("customers").select("phone").order("phone").range(from, from + PAGE - 1);
+      if (cutoff) query = query.gte("updated_at", cutoff);
+      return query;
+    });
     if (error) { $("dlInfo").textContent = "오류: " + error.message; $("dlGo").disabled = false; return; }
     phones.push(...data.map((r) => r.phone));
     if (data.length < PAGE) break;
