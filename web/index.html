@@ -32,9 +32,9 @@
 
 <!-- 메인 (가로 모드: 왼쪽 내용 + 오른쪽 키패드) -->
 <div id="appView" class="hidden h-screen flex flex-col w-full mx-auto p-3">
-  <header class="flex items-center justify-between py-2 shrink-0">
-    <h1 class="text-xl font-bold">플레이영 고객관리</h1>
-    <button id="logoutBtn" class="text-sm text-slate-500 underline">로그아웃</button>
+  <header class="-mx-3 -mt-3 mb-3 px-5 h-14 bg-slate-900 text-white flex items-center justify-between shrink-0">
+    <h1 class="text-xl font-bold leading-none">플레이영 고객관리</h1>
+    <button id="logoutBtn" class="text-sm text-slate-300 underline leading-none">로그아웃</button>
   </header>
 
   <div class="flex flex-col md:flex-row gap-3 flex-1 min-h-0">
@@ -67,10 +67,10 @@
   </div>
 
   <!-- 하단 탭바 -->
-  <nav class="shrink-0 mt-3 bg-white border rounded-2xl flex overflow-hidden">
-    <button data-tab="stamp"  class="tab-btn active flex-1 py-4 font-semibold">스탬프 입력</button>
-    <button data-tab="coupon" class="tab-btn flex-1 py-4 font-semibold">쿠폰 사용</button>
-    <button data-tab="list"   class="tab-btn flex-1 py-4 font-semibold">고객 목록</button>
+  <nav class="shrink-0 -mx-3 -mb-3 mt-3 bg-slate-900 flex overflow-hidden">
+    <button data-tab="stamp"  class="tab-btn active flex-1 py-4 font-semibold text-slate-300">스탬프 입력</button>
+    <button data-tab="coupon" class="tab-btn flex-1 py-4 font-semibold text-slate-300">쿠폰 사용</button>
+    <button data-tab="list"   class="tab-btn flex-1 py-4 font-semibold text-slate-300">고객 목록</button>
   </nav>
 </div>
 
