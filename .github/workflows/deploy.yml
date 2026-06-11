@@ -12,7 +12,8 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  # 연속 푸시 시 배포가 서로 취소되어 실패하는 것을 막기 위해 취소 대신 대기(queue)
+  cancel-in-progress: false
 
 jobs:
   deploy:
