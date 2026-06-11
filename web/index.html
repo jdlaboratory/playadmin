@@ -8,9 +8,11 @@
 <script>
   // 액센트 컬러 #ff0485 — indigo 팔레트를 핫핑크로 리매핑(기존 클래스 그대로 적용)
   tailwind.config = {
-    theme: { extend: { colors: { indigo: {
-      50: "#fff0f6", 600: "#ff0485", 700: "#d6036e", 950: "#4a0226",
-    } } } },
+    theme: { extend: { colors: {
+      indigo: { 50: "#fff0f6", 600: "#ff0485", 700: "#d6036e", 950: "#4a0226" },
+      // 쿠폰 영역 핑크 → 블루 계열
+      pink: { 50: "#eff6ff", 600: "#2563eb", 700: "#1d4ed8" },
+    } } },
   };
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
