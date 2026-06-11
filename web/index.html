@@ -87,6 +87,7 @@
     <button data-tab="stamp"  class="tab-btn active flex-1 py-3 font-semibold text-slate-300 flex flex-col items-center justify-center gap-1.5"><i class="fa-solid fa-stamp text-xl"></i><span>스탬프 적립</span></button>
     <button data-tab="coupon" class="tab-btn flex-1 py-3 font-semibold text-slate-300 flex flex-col items-center justify-center gap-1.5"><i class="fa-solid fa-ticket text-xl"></i><span>쿠폰 사용</span></button>
     <button data-tab="list"   class="tab-btn flex-1 py-3 font-semibold text-slate-300 flex flex-col items-center justify-center gap-1.5"><i class="fa-solid fa-users text-xl"></i><span>고객 관리</span></button>
+    <button data-tab="stats"  class="tab-btn flex-1 py-3 font-semibold text-slate-300 flex flex-col items-center justify-center gap-1.5"><i class="fa-solid fa-chart-column text-xl"></i><span>통계</span></button>
   </nav>
 </div>
 
@@ -339,9 +340,13 @@ document.querySelectorAll(".tab-btn").forEach((b) => {
 });
 function renderTab(tab) {
   currentTab = tab;
+  const onStats = tab === "stats";
+  $("keypadAside").classList.toggle("hidden", onStats); // 통계 탭에선 키패드 숨김
   if (tab === "stamp") renderStamp();
   else if (tab === "coupon") renderCoupon();
-  else renderList();
+  else if (tab === "list") renderList();
+  else renderStats();
+  if (!onStats) requestAnimationFrame(sizeKeypad);
 }
 
 // 부분검색 드롭다운 (스탬프/쿠폰 공용)
@@ -507,8 +512,13 @@ async function loadList() {
       <div data-rowid="${c.id}" class="flex items-center justify-between py-3 cursor-pointer hover:bg-slate-50 -mx-2 px-2 rounded-lg">
         <div class="min-w-0">
           <div class="font-semibold">${fmtPhone(c.phone)} ${c.name ? `<span class="text-slate-500 font-normal">${esc(c.name)}</span>` : ""}</div>
-          <div class="text-xs text-slate-500 mt-0.5">스탬프 ${c.stamps} · 보유쿠폰 ${c.coupons} · 사용 ${c.coupons_used}${c.memo ? " · " + esc(c.memo) : ""}</div>
-          <div class="text-xs text-slate-400 mt-0.5">최근 방문 ${fmtDate(c.updated_at)}</div>
+          <div class="flex flex-wrap items-center gap-1.5 mt-1">
+            <span title="스탬프" class="inline-flex items-center gap-1 bg-indigo-50 text-indigo-600 rounded-md px-2 py-0.5 text-xs font-bold"><i class="fa-solid fa-stamp"></i>${c.stamps}</span>
+            <span title="보유 쿠폰" class="inline-flex items-center gap-1 bg-pink-50 text-pink-600 rounded-md px-2 py-0.5 text-xs font-bold"><i class="fa-solid fa-ticket"></i>${c.coupons}</span>
+            <span title="사용한 쿠폰" class="inline-flex items-center gap-1 bg-slate-100 text-slate-500 rounded-md px-2 py-0.5 text-xs font-bold"><i class="fa-solid fa-circle-check"></i>${c.coupons_used}</span>
+            ${c.memo ? `<span class="text-xs text-slate-400">· ${esc(c.memo)}</span>` : ""}
+          </div>
+          <div class="text-xs text-slate-400 mt-1"><i class="fa-regular fa-clock mr-1"></i>최근 방문 ${fmtDate(c.updated_at)}</div>
         </div>
         <div class="flex gap-1 shrink-0">
           <button data-act="edit" data-id="${c.id}" class="px-3 py-1.5 text-sm border rounded-lg"><i class="fa-solid fa-pen mr-1"></i>수정</button>
@@ -545,6 +555,219 @@ async function delRow(id, label) {
   const { error } = await q(() => sb.from("customers").delete().eq("id", id));
   if (error) return toast("오류: " + error.message, false);
   toast("삭제 완료"); loadList();
+}
+
+// ── 통계 (일/주/월별 스탬프 적립·쿠폰 사용) ──
+let statsGran = "day";
+// 일/주별은 선택한 '월', 월별은 선택한 '연도' 기준으로 조회
+const _todayKST = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
+let selY = +_todayKST.slice(0, 4);
+let selM = +_todayKST.slice(5, 7);
+const _pad = (n) => String(n).padStart(2, "0");
+const _ymd = (s) => { const [y, m, d] = s.split("-").map(Number); return { y, m, d }; };
+const _fmtUTC = (dt) => `${dt.getUTCFullYear()}-${_pad(dt.getUTCMonth() + 1)}-${_pad(dt.getUTCDate())}`;
+const kstDateStr = (ts) => new Date(ts).toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" }); // YYYY-MM-DD
+function mondayOf(dateStr) {
+  const { y, m, d } = _ymd(dateStr);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  const dow = (dt.getUTCDay() + 6) % 7; // 월=0 … 일=6
+  dt.setUTCDate(dt.getUTCDate() - dow);
+  return _fmtUTC(dt);
+}
+function bucketKey(dateStr, gran) {
+  if (gran === "day") return dateStr;
+  if (gran === "month") return dateStr.slice(0, 7);
+  return mondayOf(dateStr);
+}
+function statsRange() {
+  if (statsGran === "month") {
+    const keys = [];
+    for (let m = 1; m <= 12; m++) keys.push(`${selY}-${_pad(m)}`);
+    return { keys, cutoff: `${selY}-01-01T00:00:00+09:00`, until: `${selY + 1}-01-01T00:00:00+09:00` };
+  }
+  const lastDay = new Date(Date.UTC(selY, selM, 0)).getUTCDate();
+  if (statsGran === "day") {
+    const keys = [];
+    for (let d = 1; d <= lastDay; d++) keys.push(`${selY}-${_pad(selM)}-${_pad(d)}`);
+    const ny = selM === 12 ? selY + 1 : selY, nm = selM === 12 ? 1 : selM + 1;
+    return { keys, cutoff: `${selY}-${_pad(selM)}-01T00:00:00+09:00`, until: `${ny}-${_pad(nm)}-01T00:00:00+09:00` };
+  }
+  // week: 선택한 월의 날짜들이 속한 주(월~일)
+  const firstMon = mondayOf(`${selY}-${_pad(selM)}-01`);
+  const lastMon = mondayOf(`${selY}-${_pad(selM)}-${_pad(lastDay)}`);
+  const keys = [];
+  const c0 = _ymd(firstMon); let curDt = new Date(Date.UTC(c0.y, c0.m - 1, c0.d));
+  const lm = _ymd(lastMon); const lastDt = new Date(Date.UTC(lm.y, lm.m - 1, lm.d));
+  while (curDt <= lastDt) { keys.push(_fmtUTC(curDt)); curDt.setUTCDate(curDt.getUTCDate() + 7); }
+  const untilDt = new Date(lastDt); untilDt.setUTCDate(untilDt.getUTCDate() + 7);
+  return { keys, cutoff: keys[0] + "T00:00:00+09:00", until: _fmtUTC(untilDt) + "T00:00:00+09:00" };
+}
+function statsNav(dir) {
+  if (statsGran === "month") selY += dir;
+  else { selM += dir; if (selM > 12) { selM = 1; selY++; } else if (selM < 1) { selM = 12; selY--; } }
+  renderStampStats();
+}
+function bucketLabel(key, gran) {
+  const g = gran || statsGran;
+  if (g === "month") return `${+key.split("-")[1]}월`;
+  const { m, d } = _ymd(key);
+  if (g === "week") return `${m}/${d}`;
+  return `${d}`;
+}
+let statsView = "stamp";
+const CS_PAGE_SIZE = 20;
+let csRows = [];
+let csPage = 0;
+function renderStats() {
+  $("tabContent").innerHTML = `
+    <div class="bg-white rounded-2xl shadow p-5 h-full flex flex-col">
+      <div class="flex items-center gap-2 mb-4 border-b pb-3 shrink-0">
+        <h2 class="font-bold text-lg mr-2"><i class="fa-solid fa-chart-column mr-2 text-indigo-600"></i>통계</h2>
+        <button data-sv="stamp" class="sv px-4 py-2 rounded-lg font-semibold text-sm">스탬프 통계</button>
+        <button data-sv="customer" class="sv px-4 py-2 rounded-lg font-semibold text-sm">고객 통계</button>
+      </div>
+      <div id="stats_body" class="flex-1 min-h-0 flex flex-col"></div>
+    </div>`;
+  document.querySelectorAll(".sv").forEach((b) => {
+    const active = b.dataset.sv === statsView;
+    b.className = "sv px-4 py-2 rounded-lg font-semibold text-sm " + (active ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600");
+    b.onclick = () => { statsView = b.dataset.sv; renderStats(); };
+  });
+  if (statsView === "stamp") renderStampStats();
+  else renderCustomerStats();
+}
+function renderStampStats() {
+  const navLabel = statsGran === "month" ? `${selY}년` : `${selY}년 ${selM}월`;
+  $("stats_body").innerHTML = `
+      <div class="flex items-center justify-between mb-4 flex-wrap gap-3 shrink-0">
+        <div class="flex rounded-xl overflow-hidden border text-sm">
+          <button data-g="day" class="stg px-5 py-2 font-semibold">일별</button>
+          <button data-g="week" class="stg px-5 py-2 font-semibold border-l">주별</button>
+          <button data-g="month" class="stg px-5 py-2 font-semibold border-l">월별</button>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="st_prev" class="w-9 h-9 rounded-lg border active:bg-slate-100"><i class="fa-solid fa-chevron-left"></i></button>
+          <span class="font-bold text-base text-center" style="min-width:6.5rem">${navLabel}</span>
+          <button id="st_next" class="w-9 h-9 rounded-lg border active:bg-slate-100"><i class="fa-solid fa-chevron-right"></i></button>
+        </div>
+        <div class="flex gap-4 text-sm">
+          <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-indigo-600 inline-block"></span> 스탬프 <b id="st_total_s" class="text-indigo-600">-</b></span>
+          <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-pink-600 inline-block"></span> 쿠폰 <b id="st_total_c" class="text-pink-600">-</b></span>
+        </div>
+      </div>
+      <div id="st_chart" class="flex-1 min-h-0 flex flex-col"><p class="text-slate-400 text-center py-8">불러오는 중...</p></div>`;
+  document.querySelectorAll(".stg").forEach((b) => {
+    const active = b.dataset.g === statsGran;
+    b.className = "stg px-5 py-2 font-semibold " + (b.dataset.g !== "day" ? "border-l " : "") + (active ? "bg-indigo-600 text-white" : "bg-white text-slate-600");
+    b.onclick = () => { statsGran = b.dataset.g; renderStampStats(); };
+  });
+  $("st_prev").onclick = () => statsNav(-1);
+  $("st_next").onclick = () => statsNav(1);
+  loadStats();
+}
+// 고객 통계: 환산 스탬프(스탬프 + (보유+사용 쿠폰)×10) 내림차순
+function renderCustomerStats() {
+  $("stats_body").innerHTML = `
+      <div class="flex items-center justify-between mb-3 flex-wrap gap-2 shrink-0">
+        <p class="text-sm text-slate-500">누적 스탬프가 많은 순 · 쿠폰 1개(보유·사용)를 스탬프 10개로 계산</p>
+        <div class="text-sm whitespace-nowrap"><i class="fa-solid fa-users mr-1 text-slate-400"></i>총 고객 <b id="cs_total" class="text-indigo-600 text-lg">-</b>명</div>
+      </div>
+      <div id="cs_list" class="divide-y flex-1 min-h-0 overflow-auto"><p class="text-slate-400 text-center py-8">불러오는 중...</p></div>
+      <div id="cs_pager" class="flex items-center justify-between mt-3 text-sm shrink-0"></div>`;
+  loadCustomerStats();
+}
+async function loadCustomerStats() {
+  // 현재 총 고객 수
+  const { count } = await q(() => sb.from("customers").select("phone", { count: "exact", head: true }));
+  if ($("cs_total")) $("cs_total").textContent = (count ?? 0).toLocaleString();
+  // 누적 스탬프 10 이상인 고객 = 쿠폰을 보유했거나 사용한 고객만 대상 (그 외는 스탬프 0~9)
+  const rows = [];
+  const PAGE = 1000;
+  let from = 0;
+  while (true) {
+    const { data, error } = await q(() => sb.from("customers").select("phone,name,stamps,coupons,coupons_used").or("coupons.gt.0,coupons_used.gt.0").range(from, from + PAGE - 1));
+    if (error) { $("cs_list").innerHTML = `<p class="text-red-500 text-center py-8">${esc(error.message)}</p>`; return; }
+    rows.push(...data);
+    if (data.length < PAGE) break;
+    from += PAGE;
+  }
+  rows.forEach((r) => (r._score = r.stamps + (r.coupons + r.coupons_used) * 10));
+  rows.sort((a, b) => b._score - a._score);
+  csRows = rows;
+  csPage = 0;
+  renderCsPage();
+}
+function renderCsPage() {
+  const total = csRows.length;
+  if (!total) { $("cs_list").innerHTML = `<p class="text-slate-400 text-center py-8">데이터가 없습니다.</p>`; $("cs_pager").innerHTML = ""; return; }
+  const pages = Math.max(1, Math.ceil(total / CS_PAGE_SIZE));
+  if (csPage > pages - 1) csPage = pages - 1;
+  const start = csPage * CS_PAGE_SIZE;
+  $("cs_list").innerHTML = csRows.slice(start, start + CS_PAGE_SIZE).map((r, j) => {
+    const rank = start + j + 1;
+    return `<div class="flex items-center gap-3 py-2.5">
+        <div class="w-7 text-center font-bold ${rank <= 3 ? "text-indigo-600" : "text-slate-400"}">${rank}</div>
+        <div class="flex-1 min-w-0">
+          <div class="font-semibold">${fmtPhone(r.phone)} ${r.name ? `<span class="text-slate-500 font-normal">${esc(r.name)}</span>` : ""}</div>
+          <div class="flex flex-wrap items-center gap-1.5 mt-1">
+            <span title="스탬프" class="inline-flex items-center gap-1 bg-indigo-50 text-indigo-600 rounded-md px-2 py-0.5 text-xs font-bold"><i class="fa-solid fa-stamp"></i>${r.stamps}</span>
+            <span title="보유 쿠폰" class="inline-flex items-center gap-1 bg-pink-50 text-pink-600 rounded-md px-2 py-0.5 text-xs font-bold"><i class="fa-solid fa-ticket"></i>${r.coupons}</span>
+            <span title="사용한 쿠폰" class="inline-flex items-center gap-1 bg-slate-100 text-slate-500 rounded-md px-2 py-0.5 text-xs font-bold"><i class="fa-solid fa-circle-check"></i>${r.coupons_used}</span>
+          </div>
+        </div>
+        <div class="text-right shrink-0">
+          <div class="text-lg font-bold text-indigo-600">${r._score}</div>
+          <div class="text-[10px] text-slate-400">누적 스탬프</div>
+        </div>
+      </div>`;
+  }).join("");
+  $("cs_pager").innerHTML = `
+    <button id="cs_prev" class="px-3 py-1.5 border rounded-lg ${csPage <= 0 ? "opacity-40" : ""}">이전</button>
+    <span class="text-slate-500">${csPage + 1} / ${pages} · 총 ${total}명</span>
+    <button id="cs_next" class="px-3 py-1.5 border rounded-lg ${csPage >= pages - 1 ? "opacity-40" : ""}">다음</button>`;
+  $("cs_prev").onclick = () => { if (csPage > 0) { csPage--; renderCsPage(); } };
+  $("cs_next").onclick = () => { if (csPage < pages - 1) { csPage++; renderCsPage(); } };
+}
+async function loadStats() {
+  const { keys, cutoff, until } = statsRange();
+  const logs = [];
+  const PAGE = 1000;
+  let from = 0;
+  while (true) {
+    const { data, error } = await q(() => sb.from("activity_logs").select("kind,amount,created_at").gte("created_at", cutoff).lt("created_at", until).order("created_at").range(from, from + PAGE - 1));
+    if (error) { $("st_chart").innerHTML = `<p class="text-red-500 text-center py-8">${esc(error.message)}</p>`; return; }
+    logs.push(...data);
+    if (data.length < PAGE) break;
+    from += PAGE;
+  }
+  const buckets = {};
+  keys.forEach((k) => (buckets[k] = { s: 0, c: 0 }));
+  logs.forEach((l) => {
+    const key = bucketKey(kstDateStr(l.created_at), statsGran);
+    if (!(key in buckets)) return;
+    if (l.kind === "stamp") buckets[key].s += l.amount;
+    else if (l.kind === "coupon_use") buckets[key].c += 1;
+  });
+  const totalS = keys.reduce((a, k) => a + buckets[k].s, 0);
+  const totalC = keys.reduce((a, k) => a + buckets[k].c, 0);
+  $("st_total_s").textContent = totalS + "개";
+  $("st_total_c").textContent = totalC + "개";
+  const max = Math.max(1, ...keys.map((k) => Math.max(buckets[k].s, buckets[k].c)));
+  const bars = keys.map((k) => {
+    const b = buckets[k];
+    const sh = b.s ? Math.max(4, Math.round((b.s / max) * 100)) : 0;
+    const ch = b.c ? Math.max(4, Math.round((b.c / max) * 100)) : 0;
+    const val = (b.s || b.c) ? `<span class="text-indigo-600">${b.s}</span><span class="text-slate-300">/</span><span class="text-pink-600">${b.c}</span>` : "";
+    return `<div class="flex-1 h-full flex flex-col justify-end items-center min-w-0" title="${bucketLabel(k)}  스탬프 ${b.s} · 쿠폰 ${b.c}">
+        <div class="h-4 shrink-0 text-[9px] font-bold leading-none whitespace-nowrap">${val}</div>
+        <div class="flex-1 min-h-0 w-full flex items-end justify-center gap-0.5">
+          <div class="bg-indigo-600 rounded-t flex-1 max-w-[16px]" style="height:${sh}%"></div>
+          <div class="bg-pink-600 rounded-t flex-1 max-w-[16px]" style="height:${ch}%"></div>
+        </div>
+      </div>`;
+  }).join("");
+  const labels = keys.map((k) => `<div class="flex-1 text-center text-[10px] text-slate-500 min-w-0 truncate">${bucketLabel(k)}</div>`).join("");
+  $("st_chart").innerHTML = `<div class="flex-1 min-h-0 flex items-end gap-0.5">${bars}</div><div class="shrink-0 flex gap-0.5 mt-1 border-t pt-1">${labels}</div>`;
 }
 
 // ── 고객 상세(적립/사용 이력) ──
