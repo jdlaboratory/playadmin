@@ -16,6 +16,7 @@
   };
 </script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://kit.fontawesome.com/3fbbeab3d9.js" crossorigin="anonymous"></script>
 <script src="./config.js"></script>
 <style>
   body { -webkit-tap-highlight-color: transparent; }
@@ -33,12 +34,13 @@
 <!-- 로그인 -->
 <div id="loginView" class="hidden min-h-screen flex items-center justify-center p-6">
   <div class="bg-white rounded-2xl shadow-lg p-8 w-full max-w-sm">
+    <div class="text-center text-4xl text-indigo-600 mb-3"><i class="fa-solid fa-stamp"></i></div>
     <h1 class="text-2xl font-bold text-center mb-1">플레이영</h1>
     <p class="text-center text-slate-500 mb-6">고객관리 시스템</p>
     <input id="pw" type="password" inputmode="text" placeholder="비밀번호"
            class="w-full border rounded-xl px-4 py-3 mb-3 text-center tracking-widest" />
     <button id="loginBtn" class="w-full bg-indigo-600 text-white rounded-xl py-3 font-semibold active:bg-indigo-700">
-      입장하기
+      <i class="fa-solid fa-right-to-bracket mr-2"></i>입장하기
     </button>
     <p id="loginErr" class="text-red-500 text-sm text-center mt-3 h-5"></p>
   </div>
@@ -47,8 +49,8 @@
 <!-- 메인 (가로 모드: 왼쪽 내용 + 오른쪽 키패드) -->
 <div id="appView" class="hidden h-screen flex flex-col w-full mx-auto p-3">
   <header class="-mx-3 -mt-3 mb-3 px-5 h-14 bg-slate-900 text-white flex items-center justify-between shrink-0">
-    <h1 class="text-xl font-bold leading-none">플레이영 고객관리</h1>
-    <button id="logoutBtn" class="text-sm text-slate-300 underline leading-none">로그아웃</button>
+    <h1 class="text-xl font-bold leading-none"><i class="fa-solid fa-stamp mr-2 text-indigo-400"></i>플레이영 고객관리</h1>
+    <button id="logoutBtn" class="text-sm text-slate-300 leading-none"><i class="fa-solid fa-right-from-bracket mr-1"></i>로그아웃</button>
   </header>
 
   <div class="flex flex-col md:flex-row gap-3 flex-1 min-h-0">
@@ -72,8 +74,8 @@
           <button class="key h-20 rounded-xl border text-3xl font-semibold active:bg-slate-100" data-k="9">9</button>
           <button class="key h-20 rounded-xl border text-3xl font-semibold text-indigo-600 active:bg-indigo-50" data-k="010">010</button>
           <button class="key h-20 rounded-xl border text-3xl font-semibold active:bg-slate-100" data-k="0">0</button>
-          <button class="key h-20 rounded-xl border text-3xl font-semibold active:bg-slate-100" data-k="back">⌫</button>
-          <button class="key col-span-3 h-16 rounded-xl border text-lg font-semibold text-red-500 active:bg-red-50" data-k="clear">전체삭제</button>
+          <button class="key h-20 rounded-xl border text-3xl font-semibold active:bg-slate-100" data-k="back"><i class="fa-solid fa-delete-left"></i></button>
+          <button class="key col-span-3 h-16 rounded-xl border text-lg font-semibold text-red-500 active:bg-red-50" data-k="clear"><i class="fa-solid fa-delete-left mr-2"></i>전체삭제</button>
         </div>
         </div>
       </div>
@@ -82,9 +84,9 @@
 
   <!-- 하단 탭바 -->
   <nav class="shrink-0 -mx-3 -mb-3 mt-3 bg-slate-900 flex overflow-hidden">
-    <button data-tab="stamp"  class="tab-btn active flex-1 py-[22px] font-semibold text-slate-300">스탬프 입력</button>
-    <button data-tab="coupon" class="tab-btn flex-1 py-[22px] font-semibold text-slate-300">쿠폰 사용</button>
-    <button data-tab="list"   class="tab-btn flex-1 py-[22px] font-semibold text-slate-300">고객 목록</button>
+    <button data-tab="stamp"  class="tab-btn active flex-1 py-3 font-semibold text-slate-300 flex flex-col items-center justify-center gap-1.5"><i class="fa-solid fa-stamp text-xl"></i><span>스탬프 입력</span></button>
+    <button data-tab="coupon" class="tab-btn flex-1 py-3 font-semibold text-slate-300 flex flex-col items-center justify-center gap-1.5"><i class="fa-solid fa-ticket text-xl"></i><span>쿠폰 사용</span></button>
+    <button data-tab="list"   class="tab-btn flex-1 py-3 font-semibold text-slate-300 flex flex-col items-center justify-center gap-1.5"><i class="fa-solid fa-users text-xl"></i><span>고객 목록</span></button>
   </nav>
 </div>
 
@@ -112,7 +114,7 @@
     <p id="modalErr" class="text-red-500 text-sm mt-2 h-5"></p>
     <div class="flex gap-2 mt-3">
       <button id="modalCancel" class="flex-1 border rounded-xl py-3">취소</button>
-      <button id="modalSave" class="flex-1 bg-indigo-600 text-white rounded-xl py-3 font-semibold">저장</button>
+      <button id="modalSave" class="flex-1 bg-indigo-600 text-white rounded-xl py-3 font-semibold"><i class="fa-solid fa-check mr-2"></i>저장</button>
     </div>
   </div>
 </div>
@@ -139,7 +141,7 @@
     <p id="dlInfo" class="text-sm text-slate-500 mt-2 h-5"></p>
     <div class="flex gap-2 mt-3">
       <button id="dlCancel" class="flex-1 border rounded-xl py-3">취소</button>
-      <button id="dlGo" class="flex-1 bg-indigo-600 text-white rounded-xl py-3 font-semibold">다운로드</button>
+      <button id="dlGo" class="flex-1 bg-indigo-600 text-white rounded-xl py-3 font-semibold"><i class="fa-solid fa-download mr-2"></i>다운로드</button>
     </div>
   </div>
 </div>
@@ -157,7 +159,7 @@
     <div class="mt-4 text-sm font-semibold text-slate-600 shrink-0">적립 / 사용 내역</div>
     <div id="d_logs" class="mt-2 overflow-auto flex-1 border-t"></div>
     <div class="flex gap-2 mt-3 shrink-0">
-      <button id="d_edit" class="flex-1 border rounded-xl py-3 font-semibold">정보 수정</button>
+      <button id="d_edit" class="flex-1 border rounded-xl py-3 font-semibold"><i class="fa-solid fa-pen mr-2"></i>정보 수정</button>
       <button id="d_close2" class="flex-1 bg-indigo-600 text-white rounded-xl py-3 font-semibold">닫기</button>
     </div>
   </div>
@@ -387,7 +389,7 @@ function renderStamp() {
         <button id="s_plus" class="w-14 h-14 rounded-xl border text-2xl">+</button>
       </div>
       <button id="s_submit" class="w-full bg-indigo-600 text-white rounded-xl py-4 mt-5 text-lg font-semibold active:bg-indigo-700">
-        적립하기
+        <i class="fa-solid fa-stamp mr-2"></i>적립하기
       </button>
       <div id="s_result" class="mt-4"></div>
     </div>`;
@@ -428,7 +430,7 @@ function renderCoupon() {
         <div class="flex gap-2 mt-1">
           <input id="c_phone" inputmode="numeric" autocomplete="off" placeholder="01012345678"
                  class="flex-1 border rounded-xl px-4 py-3 text-lg" />
-          <button id="c_lookup" class="px-5 bg-slate-700 text-white rounded-xl font-semibold">조회</button>
+          <button id="c_lookup" class="px-5 bg-slate-700 text-white rounded-xl font-semibold"><i class="fa-solid fa-magnifying-glass mr-1"></i>조회</button>
         </div>
         <div id="c_sugg" class="hidden absolute z-20 left-0 right-0 bg-white border rounded-xl mt-1 shadow-lg max-h-72 overflow-auto"></div>
       </div>
@@ -453,7 +455,7 @@ function drawCoupon(c) {
       <div class="text-5xl font-bold text-pink-600 my-3">${c.coupons}</div>
       <div class="text-sm text-slate-500 mb-4">보유 쿠폰 (사용 누적 ${c.coupons_used})</div>
       <button id="c_use" class="w-full ${c.coupons > 0 ? "bg-pink-600 active:bg-pink-700" : "bg-slate-300 cursor-not-allowed"} text-white rounded-xl py-4 text-lg font-semibold"
-        ${c.coupons > 0 ? "" : "disabled"}>사용하기 (1장 차감)</button>
+        ${c.coupons > 0 ? "" : "disabled"}><i class="fa-solid fa-ticket mr-2"></i>사용하기 (1장 차감)</button>
     </div>`;
   if (c.coupons > 0) $("c_use").onclick = () => useCoupon(c.phone);
 }
@@ -475,8 +477,8 @@ function renderList() {
       <div class="flex gap-2 mb-3">
         <input id="l_q" placeholder="전화번호 검색" inputmode="numeric" autocomplete="off" value="${listState.q}"
                class="flex-1 border rounded-xl px-4 py-2" />
-        <button id="l_dl" class="px-4 border rounded-xl font-semibold whitespace-nowrap">⬇ 다운로드</button>
-        <button id="l_add" class="px-4 bg-indigo-600 text-white rounded-xl font-semibold whitespace-nowrap">+ 추가</button>
+        <button id="l_dl" class="px-4 border rounded-xl font-semibold whitespace-nowrap"><i class="fa-solid fa-download mr-1"></i> 다운로드</button>
+        <button id="l_add" class="px-4 bg-indigo-600 text-white rounded-xl font-semibold whitespace-nowrap"><i class="fa-solid fa-plus mr-1"></i> 추가</button>
       </div>
       <div id="l_rows" class="divide-y"></div>
       <div id="l_pager" class="flex items-center justify-between mt-3 text-sm"></div>
@@ -509,8 +511,8 @@ async function loadList() {
           <div class="text-xs text-slate-400 mt-0.5">최근 방문 ${fmtDate(c.updated_at)}</div>
         </div>
         <div class="flex gap-1 shrink-0">
-          <button data-act="edit" data-id="${c.id}" class="px-3 py-1.5 text-sm border rounded-lg">수정</button>
-          <button data-act="del" data-id="${c.id}" class="px-3 py-1.5 text-sm border border-red-200 text-red-600 rounded-lg">삭제</button>
+          <button data-act="edit" data-id="${c.id}" class="px-3 py-1.5 text-sm border rounded-lg"><i class="fa-solid fa-pen mr-1"></i>수정</button>
+          <button data-act="del" data-id="${c.id}" class="px-3 py-1.5 text-sm border border-red-200 text-red-600 rounded-lg"><i class="fa-solid fa-trash-can mr-1"></i>삭제</button>
         </div>
       </div>`).join("");
     rows.onclick = (e) => {
@@ -563,7 +565,7 @@ async function openDetail(c) {
     const stamp = l.kind === "stamp";
     return `<div class="flex items-center justify-between py-2.5 border-b">
         <div>
-          <span class="font-semibold ${stamp ? "text-indigo-600" : "text-pink-600"}">${stamp ? `스탬프 +${l.amount}개` : "쿠폰 사용 (1장)"}</span>
+          <span class="font-semibold ${stamp ? "text-indigo-600" : "text-pink-600"}"><i class="fa-solid ${stamp ? "fa-stamp" : "fa-ticket"} mr-1.5"></i>${stamp ? `스탬프 +${l.amount}개` : "쿠폰 사용 (1장)"}</span>
           <span class="text-xs text-slate-400 block">처리 후 · 잔여 스탬프 ${l.stamps_after ?? "-"} · 보유쿠폰 ${l.coupons_after ?? "-"}</span>
         </div>
         <div class="text-sm text-slate-500 whitespace-nowrap">${fmtDate(l.created_at)}</div>
