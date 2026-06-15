@@ -27,3 +27,22 @@ jobs:
           name: supabase-backup-${{ github.run_number }}
           path: backup/
           retention-days: 90
+      # 45일 이상 커밋이 없으면 PAT로 백업 로그 커밋을 푸시해 60일 비활성 비활성화를 방지
+      # (PAT는 KEEPALIVE_PAT 시크릿. 없으면 안전하게 건너뜀)
+      - name: Keepalive (스케줄 비활성화 방지)
+        env:
+          PAT: ${{ secrets.KEEPALIVE_PAT }}
+        run: |
+          if [ -z "$PAT" ]; then echo "KEEPALIVE_PAT 미설정 - keepalive 건너뜀"; exit 0; fi
+          LAST=$(git log -1 --format=%ct)
+          DAYS=$(( ( $(date +%s) - LAST ) / 86400 ))
+          echo "마지막 커밋: ${DAYS}일 전"
+          if [ "$DAYS" -lt 45 ]; then echo "최근 활동 있음 - keepalive 불필요"; exit 0; fi
+          DATE_KST=$(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M')
+          mkdir -p .github
+          echo "마지막 백업 keepalive: ${DATE_KST} KST" > .github/last-backup.txt
+          git config user.name "JDLab"
+          git config user.email "ikejd1129@gmail.com"
+          git add .github/last-backup.txt
+          git commit -m "chore: 백업 keepalive ${DATE_KST} [skip ci]"
+          git push "https://x-access-token:${PAT}@github.com/jdlaboratory/playadmin.git" HEAD:main
