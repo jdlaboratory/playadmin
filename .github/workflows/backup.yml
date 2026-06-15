@@ -1,0 +1,36 @@
+name: Daily Supabase Backup
+
+on:
+  schedule:
+    - cron: "0 21 * * *" # 매일 06:00 KST (= 전날 21:00 UTC)
+  workflow_dispatch: # 수동 실행도 가능
+  push: # [임시] 검증용 - 백업 파일 변경 시 실행. 검증 후 제거 예정.
+    branches: [main]
+    paths:
+      - ".github/workflows/backup.yml"
+      - "scripts/backup.mjs"
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install dependency
+        run: npm install @supabase/supabase-js@2 --no-save
+      - name: Export Supabase data
+        run: node scripts/backup.mjs
+        env:
+          SUPABASE_URL: https://ptpgwcrrtlxathwfpfvd.supabase.co
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-backup-${{ github.run_number }}
+          path: backup/
+          retention-days: 90
