@@ -4,11 +4,6 @@ on:
   schedule:
     - cron: "0 21 * * *" # 매일 06:00 KST (= 전날 21:00 UTC)
   workflow_dispatch: # 수동 실행도 가능
-  push: # [임시] 검증용 - 백업 파일 변경 시 실행. 검증 후 제거 예정.
-    branches: [main]
-    paths:
-      - ".github/workflows/backup.yml"
-      - "scripts/backup.mjs"
 
 permissions:
   contents: read
