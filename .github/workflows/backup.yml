@@ -4,6 +4,10 @@ on:
   schedule:
     - cron: "0 21 * * *" # 매일 06:00 KST (= 전날 21:00 UTC)
   workflow_dispatch: # 수동 실행도 가능
+  push: # [임시] PAT keepalive 검증용 - 검증 후 제거
+    branches: [main]
+    paths:
+      - ".github/workflows/backup.yml"
 
 permissions:
   contents: read
@@ -37,7 +41,7 @@ jobs:
           LAST=$(git log -1 --format=%ct)
           DAYS=$(( ( $(date +%s) - LAST ) / 86400 ))
           echo "마지막 커밋: ${DAYS}일 전"
-          if [ "$DAYS" -lt 45 ]; then echo "최근 활동 있음 - keepalive 불필요"; exit 0; fi
+          if [ "$DAYS" -lt 0 ]; then echo "최근 활동 있음 - keepalive 불필요"; exit 0; fi
           DATE_KST=$(TZ=Asia/Seoul date +'%Y-%m-%d %H:%M')
           mkdir -p .github
           echo "마지막 백업 keepalive: ${DATE_KST} KST" > .github/last-backup.txt
