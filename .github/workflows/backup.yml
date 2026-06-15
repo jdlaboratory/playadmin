@@ -20,9 +20,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
-      - name: Install dependency
-        run: npm install @supabase/supabase-js@2 --no-save
+          node-version: 22
       - name: Export Supabase data
         run: node scripts/backup.mjs
         env:
