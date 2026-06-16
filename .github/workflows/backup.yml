@@ -17,6 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false # keepalive가 PAT로 푸시할 수 있도록 GITHUB_TOKEN 헤더 제거
       - uses: actions/setup-node@v4
         with:
           node-version: 22
