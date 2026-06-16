@@ -61,7 +61,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ -z "$PAT" ]; then echo "PAT 없음 - 점검 생략"; exit 0; fi
-          EXP=$(curl -sI -H "Authorization: token $PAT" https://api.github.com/ | tr -d '\r' \
+          EXP=$(curl -s -o /dev/null -D - -H "Authorization: token $PAT" https://api.github.com/user | tr -d '\r' \
                 | awk -F': ' 'tolower($1)=="github-authentication-token-expiration"{print $2}')
           if [ -z "$EXP" ]; then echo "만료 없음(무기한 토큰) - 알림 불필요"; exit 0; fi
           echo "PAT 만료: $EXP"
