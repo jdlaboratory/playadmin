@@ -4,9 +4,14 @@ on:
   schedule:
     - cron: "0 21 * * *" # 매일 06:00 KST (= 전날 21:00 UTC)
   workflow_dispatch: # 수동 실행도 가능
+  push: # [임시] 만료알림 검증용 - 검증 후 제거
+    branches: [main]
+    paths:
+      - ".github/workflows/backup.yml"
 
 permissions:
   contents: read
+  issues: write # PAT 만료 임박 시 알림 이슈 생성
 
 jobs:
   backup:
@@ -48,3 +53,25 @@ jobs:
           git add .github/last-backup.txt
           git commit -m "chore: 백업 keepalive ${DATE_KST} [skip ci]"
           git push "https://x-access-token:${PAT}@github.com/jdlaboratory/playadmin.git" HEAD:main
+      # PAT 만료일을 API 응답 헤더로 확인해, 14일 이하로 남으면 알림 이슈 생성
+      - name: PAT 만료 점검
+        if: always()
+        env:
+          PAT: ${{ secrets.KEEPALIVE_PAT }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -z "$PAT" ]; then echo "PAT 없음 - 점검 생략"; exit 0; fi
+          EXP=$(curl -sI -H "Authorization: token $PAT" https://api.github.com/ | tr -d '\r' \
+                | awk -F': ' 'tolower($1)=="github-authentication-token-expiration"{print $2}')
+          if [ -z "$EXP" ]; then echo "만료 없음(무기한 토큰) - 알림 불필요"; exit 0; fi
+          echo "PAT 만료: $EXP"
+          EXP_TS=$(date -d "$EXP" +%s 2>/dev/null || echo 0)
+          if [ "$EXP_TS" -eq 0 ]; then echo "만료일 파싱 실패: $EXP"; exit 0; fi
+          DAYS=$(( (EXP_TS - $(date +%s)) / 86400 ))
+          echo "만료까지 ${DAYS}일"
+          if [ "$DAYS" -gt 100000 ]; then echo "여유 있음 - 알림 불필요"; exit 0; fi
+          OPEN=$(gh issue list --state open --json title --jq '[.[]|select(.title|test("KEEPALIVE_PAT"))]|length')
+          if [ "$OPEN" != "0" ]; then echo "이미 알림 이슈 있음 - 생략"; exit 0; fi
+          gh issue create \
+            --title "⚠️ KEEPALIVE_PAT(백업 토큰)가 곧 만료됩니다 (약 ${DAYS}일 후)" \
+            --body "백업 자동 유지용 토큰(시크릿 \`KEEPALIVE_PAT\`)이 약 ${DAYS}일 후(${EXP})에 만료됩니다. 새 토큰을 발급해 같은 이름의 시크릿을 갱신해 주세요. 갱신 전까지 매일 백업 자체는 계속 작동합니다."
