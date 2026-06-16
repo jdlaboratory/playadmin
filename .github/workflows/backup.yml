@@ -4,10 +4,6 @@ on:
   schedule:
     - cron: "0 21 * * *" # 매일 06:00 KST (= 전날 21:00 UTC)
   workflow_dispatch: # 수동 실행도 가능
-  push: # [임시] 만료알림 검증용 - 검증 후 제거
-    branches: [main]
-    paths:
-      - ".github/workflows/backup.yml"
 
 permissions:
   contents: read
@@ -69,7 +65,7 @@ jobs:
           if [ "$EXP_TS" -eq 0 ]; then echo "만료일 파싱 실패: $EXP"; exit 0; fi
           DAYS=$(( (EXP_TS - $(date +%s)) / 86400 ))
           echo "만료까지 ${DAYS}일"
-          if [ "$DAYS" -gt 100000 ]; then echo "여유 있음 - 알림 불필요"; exit 0; fi
+          if [ "$DAYS" -gt 14 ]; then echo "여유 있음 - 알림 불필요"; exit 0; fi
           OPEN=$(gh issue list --state open --json title --jq '[.[]|select(.title|test("KEEPALIVE_PAT"))]|length')
           if [ "$OPEN" != "0" ]; then echo "이미 알림 이슈 있음 - 생략"; exit 0; fi
           gh issue create \
