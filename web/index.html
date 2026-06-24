@@ -157,7 +157,9 @@
       </div>
       <button id="d_close" class="text-slate-400 text-3xl leading-none px-2">&times;</button>
     </div>
-    <div class="mt-4 text-sm font-semibold text-slate-600 shrink-0">적립 / 사용 내역</div>
+    <div class="mt-3 text-sm font-semibold text-slate-600 shrink-0">보유 쿠폰 상태</div>
+    <div id="d_coupons" class="mt-1 shrink-0 max-h-36 overflow-auto"></div>
+    <div class="mt-3 text-sm font-semibold text-slate-600 shrink-0">적립 / 사용 내역</div>
     <div id="d_logs" class="mt-2 overflow-auto flex-1 border-t"></div>
     <div class="flex gap-2 mt-3 shrink-0">
       <button id="d_edit" class="flex-1 border rounded-xl py-3 font-semibold"><i class="fa-solid fa-pen mr-2"></i>정보 수정</button>
@@ -785,13 +787,35 @@ async function loadStats() {
 
 // ── 고객 상세(적립/사용 이력) ──
 let detailCust = null;
+// 보유 쿠폰별 발급일/만료일(발급+2년)/상태 표시
+async function loadCouponStatus(phone) {
+  const { data, error } = await q(() => sb.from("coupons").select("issued_at").eq("phone", phone).order("issued_at", { ascending: true }));
+  if (error) { $("d_coupons").innerHTML = `<p class="text-red-500 text-xs py-2">${esc(error.message)}</p>`; return; }
+  if (!data || !data.length) { $("d_coupons").innerHTML = `<p class="text-slate-400 text-xs py-2">보유 중인 쿠폰이 없습니다.</p>`; return; }
+  const now = Date.now();
+  const dstr = (d) => fmtDate(d).slice(0, 10);
+  $("d_coupons").innerHTML = data.map((k) => {
+    const issued = new Date(k.issued_at);
+    const exp = new Date(k.issued_at); exp.setFullYear(exp.getFullYear() + 2);
+    const expired = exp.getTime() < now;
+    return `<div class="flex items-center justify-between py-1.5 border-b last:border-0 text-sm">
+        <div class="flex items-center gap-2 min-w-0">
+          <i class="fa-solid fa-ticket ${expired ? "text-red-400" : "text-pink-600"}"></i>
+          <span class="text-slate-600">발급 ${dstr(issued)} · 만료 ${dstr(exp)}</span>
+        </div>
+        <span class="text-xs font-bold px-2 py-0.5 rounded shrink-0 ${expired ? "bg-red-50 text-red-600" : "bg-pink-50 text-pink-600"}">${expired ? "만료" : "유효"}</span>
+      </div>`;
+  }).join("");
+}
 async function openDetail(c) {
   detailCust = c;
   $("d_title").textContent = `${fmtPhone(c.phone)}${c.name ? " · " + c.name : ""}`;
   const dv = (c.coupons_valid ?? c.coupons) || 0, de = c.coupons_expired || 0;
   $("d_summary").textContent = `스탬프 ${c.stamps} · 보유 ${dv}${de ? " · 만료 " + de : ""} · 사용 ${c.coupons_used} · 최근 방문 ${fmtDate(c.updated_at)}`;
   $("d_logs").innerHTML = `<p class="text-slate-400 text-center py-6">불러오는 중...</p>`;
+  $("d_coupons").innerHTML = `<p class="text-slate-400 text-xs py-2">불러오는 중...</p>`;
   $("detailModal").classList.remove("hidden");
+  loadCouponStatus(c.phone);
   const { data, error } = await q(() => sb.from("activity_logs").select("*").eq("phone", c.phone).order("created_at", { ascending: false }).limit(300));
   if (error) { $("d_logs").innerHTML = `<p class="text-red-500 text-center py-6">${esc(error.message)}</p>`; return; }
   if (!data.length) {
