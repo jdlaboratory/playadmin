@@ -670,8 +670,8 @@ function renderStampStats() {
           <button id="st_next" class="w-9 h-9 rounded-lg border active:bg-slate-100"><i class="fa-solid fa-chevron-right"></i></button>
         </div>
         <div class="flex gap-4 text-sm">
-          <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-indigo-600 inline-block"></span> 스탬프 <b id="st_total_s" class="text-indigo-600">-</b></span>
-          <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-pink-600 inline-block"></span> 쿠폰 <b id="st_total_c" class="text-pink-600">-</b></span>
+          <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-indigo-600 inline-block"></span> 스탬프 적립 <b id="st_total_s" class="text-indigo-600">-</b></span>
+          <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-pink-600 inline-block"></span> 쿠폰 사용 <b id="st_total_c" class="text-pink-600">-</b></span>
         </div>
       </div>
       <div id="st_chart" class="flex-1 min-h-0 flex flex-col"><p class="text-slate-400 text-center py-8">불러오는 중...</p></div>`;
@@ -775,7 +775,7 @@ async function loadStats() {
     const sh = b.s ? Math.max(4, Math.round((b.s / max) * 100)) : 0;
     const ch = b.c ? Math.max(4, Math.round((b.c / max) * 100)) : 0;
     const val = (b.s || b.c) ? `<span class="text-indigo-600">${b.s}</span><span class="text-slate-300">/</span><span class="text-pink-600">${b.c}</span>` : "";
-    return `<div class="flex-1 h-full flex flex-col justify-end items-center min-w-0" title="${bucketLabel(k)}  스탬프 ${b.s} · 쿠폰 ${b.c}">
+    return `<div class="flex-1 h-full flex flex-col justify-end items-center min-w-0" title="${bucketLabel(k)}  스탬프 적립 ${b.s} · 쿠폰 사용 ${b.c}">
         <div class="h-4 shrink-0 text-[9px] font-bold leading-none whitespace-nowrap">${val}</div>
         <div class="flex-1 min-h-0 w-full flex items-end justify-center gap-0.5">
           <div class="bg-indigo-600 rounded-t flex-1 max-w-[16px]" style="height:${sh}%"></div>
@@ -783,7 +783,16 @@ async function loadStats() {
         </div>
       </div>`;
   }).join("");
-  const labels = keys.map((k) => `<div class="flex-1 text-center text-[10px] text-slate-500 min-w-0 truncate">${bucketLabel(k)}</div>`).join("");
+  const labels = keys.map((k) => {
+    let color = "text-slate-500";
+    if (statsGran === "day") {
+      const { y, m, d } = _ymd(k);
+      const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+      if (dow === 0) color = "text-red-500";       // 일요일
+      else if (dow === 6) color = "text-blue-500"; // 토요일
+    }
+    return `<div class="flex-1 text-center text-[10px] ${color} min-w-0 truncate">${bucketLabel(k)}</div>`;
+  }).join("");
   $("st_chart").innerHTML = `<div class="flex-1 min-h-0 flex items-end gap-0.5">${bars}</div><div class="shrink-0 flex gap-0.5 mt-1 border-t pt-1">${labels}</div>`;
 }
 
