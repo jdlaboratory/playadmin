@@ -570,7 +570,9 @@ async function delRow(id, phone) {
   if (!confirm(`${fmtPhone(phone)} 고객을 삭제할까요?`)) return;
   const { error } = await q(() => sb.from("customers").delete().eq("id", id));
   if (error) return toast("오류: " + error.message, false);
-  await q(() => sb.from("coupons").delete().eq("phone", phone)); // 쿠폰 행도 정리
+  // 관련 데이터까지 완전 삭제 (쿠폰 행 + 적립/사용 이력)
+  await q(() => sb.from("coupons").delete().eq("phone", phone));
+  await q(() => sb.from("activity_logs").delete().eq("phone", phone));
   toast("삭제 완료"); loadList();
 }
 
